@@ -4,6 +4,7 @@
 
 ## Active Projects
 
+* [Tavern](https://github.com/rubiojr/tavern)
 * [Datadis Go client](https://github.com/rubiojr/go-datadis)
 * [e-Distribucion client](https://github.com/rubiojr/go-edistribucion)
 * [Swamp](https://github.com/swampapp/swamp)
