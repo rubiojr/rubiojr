@@ -4,6 +4,7 @@
 
 ## Active Projects
 
+* [Charmed Ring](https://github.com/rubiojr/charmedring)
 * [Tavern](https://github.com/rubiojr/tavern)
 * [Datadis Go client](https://github.com/rubiojr/go-datadis)
 * [e-Distribucion client](https://github.com/rubiojr/go-edistribucion)
