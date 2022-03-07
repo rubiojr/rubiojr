@@ -4,3 +4,6 @@
 * charm
 * rsync
 * htop
+* duf
+* beehive
+* sshfs
