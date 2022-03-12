@@ -48,6 +48,18 @@ Internet radio.
 
 * https://github.com/louis77/tuner
 
+## Video Trimmer
+
+Trim videos.
+
+* https://gitlab.gnome.org/YaLTeR/video-trimmer
+
+## Kooha
+
+Screen recorder.
+
+* https://github.com/SeaDve/Kooha
+
 ## Honorable mentions
 
 * AppEditor: https://github.com/donadigo/appeditor
