@@ -2,7 +2,7 @@
 
 🔑 [GPG Public Key](https://github.com/rubiojr.gpg) 🎧 [Beats](https://www.instagram.com/p/CEoSON2DeWq/) ⬇️  [Code](https://github.com/rubiojr)
 
-## Active Projects
+## Projects I'm having fun with
 
 * [rclone-charmfs](https://github.com/rubiojr/rclone-charmfs) - CharmFS backend for Rclone
 * [go-usbmon](https://github.com/rubiojr/go-usbmon) - Thin udev wrapper to simplify usb device add/remove monitoring with Go
