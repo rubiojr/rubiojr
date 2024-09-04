@@ -4,6 +4,7 @@
 
 ## Projects I'm having fun with
 
+* [timelinize](https://github.com/timelinize/timelinize) - Store your data from all your accounts and devices in a single cohesive timeline
 * [rclone-charmfs](https://github.com/rubiojr/rclone-charmfs) - CharmFS backend for Rclone
 * [go-usbmon](https://github.com/rubiojr/go-usbmon) - Thin udev wrapper to simplify usb device add/remove monitoring with Go
 * [UDisks2](https://github.com/rubiojr/go-udisks) - Easy UDisks2 access from Go
