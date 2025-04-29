@@ -1,0 +1,76 @@
+#!/usr/bin/env risor
+import os
+import time
+import strings
+
+// Read the README.md file
+readme_path := "README.md"
+content := try(
+  func() { return os.read_file(readme_path) },
+  func(err) {
+    print('Error reading {readme_path}:', err)
+    return nil
+  }
+)
+
+if content == nil {
+  error("Failed to read README.md")
+}
+
+// Convert content to string
+content_str := string(content)
+
+// Get today's date in the format YYYY-MM-DD
+today := time.now().format("2006-01-02")
+
+print("Enter the new changelog entry:")
+entry_text := string(os.stdin.read())
+
+new_entry := '* {today} - {entry_text}'
+if entry_text == "" {
+  new_entry = '* {today} - New changelog entry'
+}
+
+// New changelog entry
+
+// Find the changelog section
+changelog_start := strings.index(content_str, "# Changelog")
+if changelog_start == -1 {
+  error("Changelog section not found in README.md")
+}
+
+// Split the content into parts: before changelog and changelog section
+before_changelog := content_str[:changelog_start]
+changelog_section := content_str[changelog_start:]
+
+// Find the line after the "# Changelog" header
+lines := strings.split(changelog_section, "\n")
+header := lines[0]
+entries := lines[1:]
+
+// Clean up empty lines after the header
+for entries[0] == "" {
+  entries = entries[1:]
+}
+
+// Create the updated changelog section
+updated_changelog := header + "\n\n" + new_entry
+
+// Append existing entries
+for _, entry := range entries {
+  updated_changelog += entry + "\n"
+}
+
+// Combine parts
+updated_content := before_changelog + strings.trim_space(updated_changelog) + "\n"
+
+// Write the updated content back to README.md
+try(
+  func() { os.write_file(readme_path, updated_content) },
+  func(err) {
+    print('Error writing to {readme_path}:', err)
+    return nil
+  }
+)
+
+print("Changelog updated successfully!")
