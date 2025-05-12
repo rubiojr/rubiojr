@@ -1,5 +1,7 @@
 # Changelog
 
+* 2025-05-12 - Sandboxing Wayland/X11 apps (no network) with [landrun](https://github.com/Zouuup/landrun):
+  * `landrun --unrestricted-filesystem --env DISPLAY,HOME,XAUTHORITY,DBUS_SESSION_BUS_ADDRESS <binary/cmd>`
 * 2025-05-10 - Meshtastic
   * https://meshtastic.liamcottle.net
   * https://client.meshtastic.org/
