@@ -1,5 +1,6 @@
 # Changelog
 
+* 2025-06-03 - I guess [it's really turning heads](https://github.com/cloudflare/workers-oauth-provider/blob/a6e3e06c2642e0fd4c185374753201cffc21ce8a/README.md#written-using-claude)
 * 2025-05-22 - The [Risor](https://risor.io) ecosystemd keeps growing - https://github.com/rubiojr/risor-docgen
 * 2025-05-22 - On new languages and the joy of creation - https://web.archive.org/web/20250405081122/https://rune-rs.github.io/book/#foreword
 * 2025-05-15 - About - https://dynomight.net/about ([archived](https://web.archive.org/web/20250501172103/https://dynomight.net/about/))
