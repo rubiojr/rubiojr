@@ -1,5 +1,6 @@
 # Changelog
 
+* 2026-01-10 - Easy Claude Code sandboxing - https://github.com/rubiojr/pearls/blob/main/landrun-claude-code.md
 * 2025-12-27 - Public Interest Tech - https://public-interest-tech.com
 * 2025-09-30 - Experiments with Qt - [WhereAmI](https://github.com/rubiojr/whereami)
 * 2025-06-03 - I guess [it's really turning heads](https://github.com/cloudflare/workers-oauth-provider/blob/a6e3e06c2642e0fd4c185374753201cffc21ce8a/README.md#written-using-claude)
