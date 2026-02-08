@@ -1,5 +1,6 @@
 # Changelog
 
+* 2026-02-08 - Opus 4.6 X-Files: Rugo - https://github.com/rubiojr/rugo
 * 2026-01-10 - Easy Claude Code sandboxing - https://github.com/rubiojr/pearls/blob/main/landrun-claude-code.md
 * 2025-12-27 - Public Interest Tech - https://public-interest-tech.com
 * 2025-09-30 - Experiments with Qt - [WhereAmI](https://github.com/rubiojr/whereami)
