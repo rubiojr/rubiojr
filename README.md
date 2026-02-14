@@ -1,5 +1,6 @@
 # Changelog
 
+* 2026-02-14 - Rugo has a blog - https://blog.rugo-lang.dev
 * 2026-02-11 - Goro 🐉 is born - https://rubiojr.github.io/rugo
 * 2026-02-08 - Opus 4.6 X-Files: Rugo - https://github.com/rubiojr/rugo
 * 2026-01-10 - Easy Claude Code sandboxing - https://github.com/rubiojr/pearls/blob/main/landrun-claude-code.md
