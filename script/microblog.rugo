@@ -56,19 +56,78 @@ def read_document(text)
     raise "README is missing # Changelog"
   end
   body = lines[start + 1, finish - start - 1].join("\n")
-  opening = "<!-- microblog:archives -->"
-  closing = "<!-- /microblog:archives -->"
-  if str.contains(body, opening) || str.contains(body, closing)
-    if str.count(body, opening) != 1 || str.count(body, closing) != 1 || str.index(body, closing) < str.index(body, opening)
-      raise "Malformed microblog archive markers"
+  for section in ["archives", "tags"]
+    opening = "<!-- microblog:#{section} -->"
+    closing = "<!-- /microblog:#{section} -->"
+    if str.contains(body, opening) || str.contains(body, closing)
+      if str.count(body, opening) != 1 || str.count(body, closing) != 1 || str.index(body, closing) < str.index(body, opening)
+        raise "Malformed microblog #{section} markers"
+      end
+      body = re.replace_all("(?s)" + opening + ".*?" + closing, body, "")
     end
-    body = re.replace_all('(?s)<!-- microblog:archives -->.*?<!-- /microblog:archives -->', body, "")
   end
   return {prefix: lines[0, start + 1].join("\n"), suffix: lines[finish, len(lines)].join("\n"), entries: parse_entries(body)}
 end
 
 def newest_first(entries)
   return entries.sort_by(fn(entry) -time.parse(entry[2, 10], "2006-01-02") end)
+end
+
+# Hashtags are whitespace-delimited words, not URL fragments or Markdown headings.
+def entry_tags(entry)
+  return str.fields(entry)
+    .filter(fn(word) re.test('^#[A-Za-z0-9][A-Za-z0-9_-]*[.,!?;:]*$', word) end)
+    .map(fn(word) str.lower(re.find('[A-Za-z0-9][A-Za-z0-9_-]*', word)) end)
+    .uniq()
+end
+
+def tag_index(entries)
+  tags = {}
+  for entry in newest_first(entries)
+    for tag in entry_tags(entry)
+      if tags[tag] == nil
+        tags[tag] = []
+      end
+      tags[tag] = append(tags[tag], entry)
+    end
+  end
+  return tags
+end
+
+def read_archive(directory, year)
+  path = paths.join(directory, year + ".md")
+  if !os.file_exists(path)
+    return []
+  end
+  text = os.read_file(path)
+  header = "# Changelog — #{year}\n\n"
+  if !str.starts_with(text, header)
+    raise "Unexpected archive format: #{path}"
+  end
+  posts = parse_entries(str.trim_prefix(text, header))
+  if posts.any(fn(post) post[2, 4] != year end)
+    raise "Archive contains entries for a different year: #{path}"
+  end
+  return posts
+end
+
+def write_tags(directory, tags, readme)
+  os.mkdir(directory)
+  for tag, posts in tags
+    folder = paths.join(directory, tag)
+    os.mkdir(folder)
+    target = str.replace(paths.base(readme), " ", "%20")
+    content = "<!-- microblog:generated-tag -->\n# Changelog — ##{tag}\n\n[Back to microblog](../../#{target})\n\n" + posts.join("\n") + "\n"
+    atomic_write(paths.join(folder, "README.md"), content)
+  end
+  for path in os.glob(paths.join(directory, "*", "README.md"))
+    tag = paths.base(paths.dir(path))
+    if tags[tag] == nil && str.starts_with(os.read_file(path), "<!-- microblog:generated-tag -->\n")
+      go_os.remove(path)
+      # Remove only empty directories, preserving any other user files.
+      try go_os.remove(paths.dir(path))
+    end
+  end
 end
 
 # Replace each file atomically; archives are saved before removing README posts.
@@ -92,20 +151,7 @@ def archive(readme, original, document, entries)
   for entry in entries.drop(3)
     year = entry[2, 4]
     if updates[year] == nil
-      path = paths.join(directory, year + ".md")
-      previous = []
-      if os.file_exists(path)
-        text = os.read_file(path)
-        header = "# Changelog — #{year}\n\n"
-        if !str.starts_with(text, header)
-          raise "Unexpected archive format: #{path}"
-        end
-        previous = parse_entries(str.trim_prefix(text, header))
-        if previous.any(fn(post) post[2, 4] != year end)
-          raise "Archive contains entries for a different year: #{path}"
-        end
-      end
-      updates[year] = previous
+      updates[year] = read_archive(directory, year)
     end
     # A retry after an interrupted write must not duplicate archived posts.
     if !updates[year].any(fn(post) post == entry end)
@@ -117,10 +163,30 @@ def archive(readme, original, document, entries)
     .filter(fn(name) re.test('^[0-9]{4}\.md$', name) end)
     .map(fn(name) name[0, 4] end)
   years = append(years, updates.keys()).flatten().uniq().sort_by(fn(year) -time.parse(year, "2006") end)
+  all_entries = entries.take(3)
+  for year in years
+    posts = updates[year]
+    if posts == nil
+      posts = read_archive(directory, year)
+    end
+    all_entries = append(all_entries, posts).flatten()
+  end
+  tags = tag_index(all_entries)
+  tag_directory = paths.join(paths.dir(readme), "tags")
+  for tag in tags.keys()
+    path = paths.join(tag_directory, tag, "README.md")
+    if os.file_exists(path) && !str.starts_with(os.read_file(path), "<!-- microblog:generated-tag -->\n")
+      raise "Refusing to overwrite an unmanaged tag page: #{path}"
+    end
+  end
   links = years.map(fn(year) "[#{year}](archives/#{year}.md)" end).join(" · ")
   output = document.prefix + "\n\n" + entries.take(3).join("\n") + "\n"
   if links != ""
     output += "\n<!-- microblog:archives -->\nArchives: " + links + "\n<!-- /microblog:archives -->\n"
+  end
+  tag_links = tags.keys().sort_by(fn(tag) tag end).map(fn(tag) "[##{tag}](tags/#{tag}/)" end).join(" · ")
+  if tag_links != ""
+    output += "\n<!-- microblog:tags -->\nTags: " + tag_links + "\n<!-- /microblog:tags -->\n"
   end
   if document.suffix != ""
     output += "\n" + document.suffix
@@ -134,6 +200,7 @@ def archive(readme, original, document, entries)
   for year, posts in updates
     atomic_write(paths.join(directory, year + ".md"), "# Changelog — #{year}\n\n" + newest_first(posts).join("\n") + "\n")
   end
+  write_tags(tag_directory, tags, readme)
   atomic_write(readme, output)
 end
 
@@ -163,7 +230,7 @@ def main()
   cli.name("microblog")
   cli.about("Manage the README microblog with Vim and yearly archives")
   cli.cmd("add", "Write a new entry in Vim and archive all but the latest three")
-  cli.cmd("archive", "Keep the latest three entries and archive the rest by year")
+  cli.cmd("archive", "Keep the latest three entries, archive the rest and rebuild tags")
   for command in ["add", "archive"]
     cli.flag(command, "readme", "r", "README path", "README.md")
   end
@@ -290,4 +357,53 @@ rats "add invokes Vim, publishes multiline text, cancels empty drafts and retain
   result = test.run(command)
   test.assert_eq(result.status, 0)
   test.assert_contains(os.read_file(readme), "* 2026-09-13 - A new post\n  \n  * nested item\n* 2026-01-01 - old")
+end
+
+rats "hashtags normalize case, support multiple tags and ignore URL fragments"
+  post = "* 2026-09-13 - Post #Rugo #go-lang, #rugo #cli_tools! https://example.com/#fragment C# ## heading #../escape\n  More #linux."
+  test.assert_eq(entry_tags(post), ["rugo", "go-lang", "cli_tools", "linux"])
+end
+
+rats "tag pages include recent, newly archived and previously archived entries and refresh cleanly"
+  root = test.tmpdir()
+  readme = root + "/README.md"
+  original = "# Changelog\n\n* 2026-06-01 - newest #Rugo #linux\n* 2026-05-01 - second\n* 2026-04-01 - third\n* 2026-01-01 - overflow #rugo\n  * nested detail\n"
+  os.write_file(readme, original)
+  os.mkdir(root + "/archives")
+  os.write_file(root + "/archives/2025.md", "# Changelog — 2025\n\n* 2025-01-01 - old #rugo #gone\n")
+  document = read_document(original)
+  archive(readme, original, document, document.entries)
+  result = os.read_file(readme)
+  test.assert_contains(result, "Tags: [#gone](tags/gone/) · [#linux](tags/linux/) · [#rugo](tags/rugo/)")
+  test.assert_true(str.index(result, "Tags:") > str.index(result, "Archives:"))
+  page = os.read_file(root + "/tags/rugo/README.md")
+  test.assert_contains(page, "# Changelog — #rugo")
+  test.assert_contains(page, "* 2026-01-01 - overflow #rugo\n  * nested detail")
+  test.assert_true(str.index(page, "newest") < str.index(page, "overflow"))
+  test.assert_true(str.index(page, "overflow") < str.index(page, "old #rugo"))
+  document = read_document(result)
+  archive(readme, result, document, document.entries)
+  test.assert_eq(os.read_file(readme), result)
+  test.assert_eq(os.read_file(root + "/tags/rugo/README.md"), page)
+  os.write_file(root + "/archives/2025.md", "# Changelog — 2025\n\n* 2025-01-01 - old #rugo\n")
+  archive(readme, result, document, document.entries)
+  test.assert_false(os.file_exists(root + "/tags/gone"))
+  test.assert_false(str.contains(os.read_file(readme), "tags/gone/"))
+end
+
+rats "removing the last tag clears links while preserving unrelated tag files"
+  root = test.tmpdir()
+  readme = root + "/README.md"
+  original = "# Changelog\n\n* 2026-06-01 - post #rugo\n"
+  os.write_file(readme, original)
+  document = read_document(original)
+  archive(readme, original, document, document.entries)
+  os.write_file(root + "/tags/rugo/notes.txt", "keep")
+  result = str.replace(os.read_file(readme), "post #rugo", "post")
+  os.write_file(readme, result)
+  document = read_document(result)
+  archive(readme, result, document, document.entries)
+  test.assert_false(os.file_exists(root + "/tags/rugo/README.md"))
+  test.assert_eq(os.read_file(root + "/tags/rugo/notes.txt"), "keep")
+  test.assert_false(str.contains(os.read_file(readme), "microblog:tags"))
 end
