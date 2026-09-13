@@ -1,0 +1,293 @@
+#!/usr/bin/env -S rugo run
+# Manage the README microblog: add a post in Vim or archive older posts.
+use "cli"
+use "os"
+use "re"
+use "str"
+use "time"
+use "test"
+import "os" as go_os
+import "path/filepath" as paths
+
+def parse_entries(body)
+  entries = []
+  current = ""
+  for line in str.split(body, "\n")
+    if re.test('^\* [0-9]{4}-[0-9]{2}-[0-9]{2} - ', line)
+      if current != ""
+        append entries, str.trim(current)
+      end
+      time.parse(line[2, 10], "2006-01-02")
+      if str.trim(line[15, len(line)]) == ""
+        raise "Entry has no text: #{line}"
+      end
+      current = line
+    elsif str.trim(line) == "" || str.starts_with(line, "  ") || str.starts_with(line, "\t")
+      if current != ""
+        current += "\n" + line
+      elsif str.trim(line) != ""
+        raise "Continuation without an entry: #{line}"
+      end
+    else
+      raise "Unrecognized microblog line: #{line}"
+    end
+  end
+  if current != ""
+    append entries, str.trim(current)
+  end
+  return entries
+end
+
+def read_document(text)
+  lines = str.split(text, "\n")
+  start = -1
+  finish = len(lines)
+  for i, line in lines
+    if line == "# Changelog"
+      if start != -1
+        raise "README contains more than one # Changelog section"
+      end
+      start = i
+    elsif start != -1 && finish == len(lines) && re.test('^#{1,6} ', line)
+      finish = i
+    end
+  end
+  if start == -1
+    raise "README is missing # Changelog"
+  end
+  body = lines[start + 1, finish - start - 1].join("\n")
+  opening = "<!-- microblog:archives -->"
+  closing = "<!-- /microblog:archives -->"
+  if str.contains(body, opening) || str.contains(body, closing)
+    if str.count(body, opening) != 1 || str.count(body, closing) != 1 || str.index(body, closing) < str.index(body, opening)
+      raise "Malformed microblog archive markers"
+    end
+    body = re.replace_all('(?s)<!-- microblog:archives -->.*?<!-- /microblog:archives -->', body, "")
+  end
+  return {prefix: lines[0, start + 1].join("\n"), suffix: lines[finish, len(lines)].join("\n"), entries: parse_entries(body)}
+end
+
+def newest_first(entries)
+  return entries.sort_by(fn(entry) -time.parse(entry[2, 10], "2006-01-02") end)
+end
+
+# Replace each file atomically; archives are saved before removing README posts.
+def atomic_write(path, content)
+  temp = go_os.create_temp(paths.dir(path), ".microblog-*")
+  name = temp.name()
+  try temp.write_string(content) or err
+    temp.close()
+    os.remove(name)
+    raise err
+  end
+  temp.close()
+  go_os.chmod(name, 420)
+  os.rename(name, path)
+end
+
+def archive(readme, original, document, entries)
+  directory = paths.join(paths.dir(readme), "archives")
+  entries = newest_first(entries)
+  updates = {}
+  for entry in entries.drop(3)
+    year = entry[2, 4]
+    if updates[year] == nil
+      path = paths.join(directory, year + ".md")
+      previous = []
+      if os.file_exists(path)
+        text = os.read_file(path)
+        header = "# Changelog — #{year}\n\n"
+        if !str.starts_with(text, header)
+          raise "Unexpected archive format: #{path}"
+        end
+        previous = parse_entries(str.trim_prefix(text, header))
+        if previous.any(fn(post) post[2, 4] != year end)
+          raise "Archive contains entries for a different year: #{path}"
+        end
+      end
+      updates[year] = previous
+    end
+    # A retry after an interrupted write must not duplicate archived posts.
+    if !updates[year].any(fn(post) post == entry end)
+      updates[year] = append(updates[year], entry)
+    end
+  end
+  years = os.glob(paths.join(directory, "*.md"))
+    .map(fn(path) paths.base(path) end)
+    .filter(fn(name) re.test('^[0-9]{4}\.md$', name) end)
+    .map(fn(name) name[0, 4] end)
+  years = append(years, updates.keys()).flatten().uniq().sort_by(fn(year) -time.parse(year, "2006") end)
+  links = years.map(fn(year) "[#{year}](archives/#{year}.md)" end).join(" · ")
+  output = document.prefix + "\n\n" + entries.take(3).join("\n") + "\n"
+  if links != ""
+    output += "\n<!-- microblog:archives -->\nArchives: " + links + "\n<!-- /microblog:archives -->\n"
+  end
+  if document.suffix != ""
+    output += "\n" + document.suffix
+  end
+  if os.read_file(readme) != original
+    raise "README changed while editing; retry with your saved draft"
+  end
+  if len(updates) > 0
+    os.mkdir(directory)
+  end
+  for year, posts in updates
+    atomic_write(paths.join(directory, year + ".md"), "# Changelog — #{year}\n\n" + newest_first(posts).join("\n") + "\n")
+  end
+  atomic_write(readme, output)
+end
+
+def edit_entry(date)
+  directory = go_os.mkdir_temp("", "microblog-*")
+  draft = paths.join(directory, "entry.md")
+  os.write_file(draft, "")
+  os.setenv("MICROBLOG_DRAFT", draft)
+  puts "Write your post in Vim. Save and quit to publish; leave it empty to cancel."
+  try vim "$MICROBLOG_DRAFT" or err
+    raise "Vim failed; draft saved at #{draft}: #{err}"
+  end
+  body = str.trim(os.read_file(draft))
+  if body == ""
+    os.remove(directory)
+    return nil
+  end
+  lines = str.split(body, "\n")
+  entry = "* #{date} - " + lines[0]
+  for line in lines.drop(1)
+    entry += "\n  " + line
+  end
+  return {entry: entry, directory: directory, draft: draft}
+end
+
+def main()
+  cli.name("microblog")
+  cli.about("Manage the README microblog with Vim and yearly archives")
+  cli.cmd("add", "Write a new entry in Vim and archive all but the latest three")
+  cli.cmd("archive", "Keep the latest three entries and archive the rest by year")
+  for command in ["add", "archive"]
+    cli.flag(command, "readme", "r", "README path", "README.md")
+  end
+  cli.flag("add", "date", "d", "Entry date (YYYY-MM-DD)", time.format(time.now(), "2006-01-02"))
+  if len(os.args()) == 0
+    puts "Usage: microblog <add|archive> [flags] (see --help)"
+    return
+  end
+  cli.parse()
+  command = cli.command()
+  if command == ""
+    cli.help()
+    return
+  end
+  if len(cli.args()) > 0 || len(cli.passthrough()) > 0
+    raise "Unexpected positional arguments"
+  end
+  readme = paths.abs(cli.get("readme"))
+  original = os.read_file(readme)
+  document = read_document(original)
+  entries = document.entries
+  edited = nil
+  if command == "add"
+    date = cli.get("date")
+    if !re.test('^[0-9]{4}-[0-9]{2}-[0-9]{2}$', date)
+      raise "Date must use YYYY-MM-DD"
+    end
+    time.parse(date, "2006-01-02")
+    edited = edit_entry(date)
+    if edited == nil
+      puts "Empty draft; cancelled."
+      return
+    end
+    entries = append([edited.entry], entries).flatten()
+  end
+  try archive(readme, original, document, entries) or err
+    if edited != nil
+      puts "Draft saved at " + edited.draft
+    end
+    raise err
+  end
+  if edited != nil
+    os.remove(edited.directory)
+  end
+  puts "Updated #{readme}; keeping the latest three entries."
+end
+
+try main() or err
+  go_os.stderr_write_string("microblog: #{err}\n")
+  exit(1)
+end
+
+rats "archives by year, preserves multiline posts and other README sections, and is idempotent"
+  root = test.tmpdir()
+  readme = root + "/README.md"
+  original = "# Changelog\n\n* 2026-06-01 - newest\n* 2026-05-01 - second\n* 2026-04-01 - third\n* 2026-01-01 - older\n* 2025-12-31 - nested\n  * keep this\n\n## About\n\nProfile text.\n"
+  os.write_file(readme, original)
+  document = read_document(original)
+  archive(readme, original, document, document.entries)
+  result = os.read_file(readme)
+  test.assert_eq(len(read_document(result).entries), 3)
+  test.assert_contains(result, "[2026](archives/2026.md) · [2025](archives/2025.md)")
+  test.assert_contains(result, "## About\n\nProfile text.\n")
+  test.assert_eq(os.read_file(root + "/archives/2025.md"), "# Changelog — 2025\n\n* 2025-12-31 - nested\n  * keep this\n")
+  document = read_document(result)
+  archive(readme, result, document, document.entries)
+  test.assert_eq(os.read_file(readme), result)
+end
+
+rats "merges existing archives and keeps new same-day posts first"
+  root = test.tmpdir()
+  readme = root + "/README.md"
+  original = "# Changelog\n\n* 2026-06-01 - first\n* 2026-06-01 - second\n* 2026-06-01 - third\n"
+  os.write_file(readme, original)
+  os.mkdir(root + "/archives")
+  os.write_file(root + "/archives/2026.md", "# Changelog — 2026\n\n* 2026-01-01 - existing\n")
+  document = read_document(original)
+  entries = append(["* 2026-06-01 - new"], document.entries).flatten()
+  archive(readme, original, document, entries)
+  test.assert_eq(read_document(os.read_file(readme)).entries[0], "* 2026-06-01 - new")
+  test.assert_eq(os.read_file(root + "/archives/2026.md"), "# Changelog — 2026\n\n* 2026-06-01 - third\n* 2026-01-01 - existing\n")
+end
+
+rats "invalid dates and unrecognized content are rejected"
+  invalid = try parse_entries("* 2026-02-30 - impossible") or "rejected"
+  test.assert_eq(invalid, "rejected")
+  invalid = try read_document("# Changelog\n\nUnstructured prose\n") or "rejected"
+  test.assert_eq(invalid, "rejected")
+end
+
+rats "changed README is not overwritten"
+  root = test.tmpdir()
+  readme = root + "/README.md"
+  original = "# Changelog\n\n* 2026-01-01 - post\n"
+  os.write_file(readme, "changed")
+  document = read_document(original)
+  result = try archive(readme, original, document, document.entries) or "rejected"
+  test.assert_eq(result, "rejected")
+  test.assert_eq(os.read_file(readme), "changed")
+end
+
+rats "add invokes Vim, publishes multiline text, cancels empty drafts and retains failed drafts"
+  root = test.tmpdir()
+  binary = root + "/microblog"
+  result = test.run("rugo build -o " + binary + " script/microblog.rugo")
+  test.assert_eq(result.status, 0)
+  os.mkdir(root + "/bin")
+  editor = root + "/bin/vim"
+  os.write_file(editor, "#!/bin/sh\ncase \"$DRAFT_MODE\" in\nempty) exit 0;;\nfail) printf 'recover me' > \"$1\"; exit 1;;\n*) printf 'A new post\\n\\n* nested item\\n' > \"$1\";;\nesac\n")
+  go_os.chmod(editor, 493)
+  readme = root + "/README with spaces.md"
+  original = "# Changelog\n\n* 2026-01-01 - old\n"
+  os.write_file(readme, original)
+  command = "PATH='" + root + "/bin:" + os.getenv("PATH") + "' " + binary + " add --date 2026-09-13 --readme '" + readme + "'"
+  result = test.run("DRAFT_MODE=empty " + command)
+  test.assert_eq(result.status, 0)
+  test.assert_eq(os.read_file(readme), original)
+  result = test.run("DRAFT_MODE=fail " + command)
+  test.assert_neq(result.status, 0)
+  test.assert_eq(os.read_file(readme), original)
+  draft = re.find('/[^ :\n]+/entry\.md', result.output)
+  test.assert_eq(os.read_file(draft), "recover me")
+  os.remove(paths.dir(draft))
+  result = test.run(command)
+  test.assert_eq(result.status, 0)
+  test.assert_contains(os.read_file(readme), "* 2026-09-13 - A new post\n  \n  * nested item\n* 2026-01-01 - old")
+end
