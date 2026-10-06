@@ -1,6 +1,6 @@
 # Changelog
 
-* 2026-10-06 - [Fyne](https://github.com/fyne-io/fyne) is fine - https://github.com/fyne-io/fyne/discussions/6575
+* 2026-10-06 - [Fyne](https://github.com/fyne-io/fyne) is fine, Linux mobile too - https://github.com/fyne-io/fyne/discussions/6575
 * 2026-10-01 - Vibecoded territory - https://gist.github.com/rubiojr/611f8de038dd030aff9f6c521a8c55ac #ai
 * 2026-09-26 - Evaluating [Ladybird](https://github.com/LadybirdBrowser/ladybird) browser daily flatpaks: https://gist.github.com/rubiojr/8280a26ee5bbc34e4eb6b8ab595839ac
 
