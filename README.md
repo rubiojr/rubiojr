@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/hello-stranger.gif" alt="Hello, stranger." width="800">
+</p>
+
 # Changelog
 
 * 2026-10-06 - [Fyne](https://github.com/fyne-io/fyne) is fine, Linux mobile too - https://github.com/fyne-io/fyne/discussions/6575
