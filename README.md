@@ -4,9 +4,9 @@
 
 # Changelog
 
+* 2026-11-09 - Information integrity is the mother of all battles: we win that, we win everything. We lose that, we lose everything. - [Maria A. Ressa](https://www.rappler.com/voices/newsletters/democracy-battle-journalism-tech-maria-ressa-2026/)
 * 2026-10-06 - [Fyne](https://github.com/fyne-io/fyne) is fine, Linux mobile too - https://github.com/fyne-io/fyne/discussions/6575
 * 2026-10-01 - Vibecoded territory - https://gist.github.com/rubiojr/611f8de038dd030aff9f6c521a8c55ac #ai
-* 2026-09-26 - Evaluating [Ladybird](https://github.com/LadybirdBrowser/ladybird) browser daily flatpaks: https://gist.github.com/rubiojr/8280a26ee5bbc34e4eb6b8ab595839ac
 
 <!-- microblog:archives -->
 Archives: [2026](archives/2026.md) · [2025](archives/2025.md)
