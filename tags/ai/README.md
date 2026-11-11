@@ -3,6 +3,7 @@
 
 [Back to microblog](../../README.md)
 
+* 2026-11-10 - We are the cows of the future - Yuval Noah Harari #ai
 * 2026-10-01 - Vibecoded territory - https://gist.github.com/rubiojr/611f8de038dd030aff9f6c521a8c55ac #ai
 * 2026-02-08 - Opus 4.6 X-Files: Rugo - https://github.com/rubiojr/rugo #rugo #ai
 * 2026-01-10 - Easy Claude Code sandboxing - https://github.com/rubiojr/pearls/blob/main/landrun-claude-code.md #ai #sandboxing
